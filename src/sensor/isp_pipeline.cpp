@@ -185,6 +185,16 @@ void ISPPipeline::enhance_dynamic_range(std::span<const uint16_t> corrected_in,
         bin_high = bin_low + 1;
     }
 
+    // Minimum dynamic range span: If scene thermal contrast is virtually uniform (< 40 counts, ~1.5 K),
+    // clamp minimum bin span so that micro-Kelvin slant-range gradients do not stretch into
+    // discrete concentric circle quantization bands.
+    constexpr size_t min_bin_span = 40;
+    if (bin_high - bin_low < min_bin_span) {
+        const size_t mid = (bin_low + bin_high) / 2;
+        bin_low = (mid >= min_bin_span / 2) ? (mid - min_bin_span / 2) : 0;
+        bin_high = std::min<size_t>(16383, bin_low + min_bin_span);
+    }
+
     // 4. Plateau Equalization (clip histogram peaks to prevent noise blowing out)
     const size_t active_bins = bin_high - bin_low + 1;
     const float avg_count_per_bin = static_cast<float>(total_pixels_) / static_cast<float>(active_bins);

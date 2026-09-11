@@ -183,13 +183,18 @@ void draw_tactical_hud_overlay(
     }
 
     // 7. Corner Tactical Telemetry OSD
+    char osd_top[128];
+    snprintf(osd_top, sizeof(osd_top), "DRONE POS: [%+.1f, %+.1f, %.1f]m | ALT: %.1f m AGL",
+             drone.pose().position_enu_m.x, drone.pose().position_enu_m.y, drone.pose().position_enu_m.z, telem.altitude_agl_m);
+    draw_list->AddText(ImVec2(top_left.x + 10.0f, top_left.y + 10.0f), IM_COL32(0, 255, 200, 240), osd_top);
+
     char osd_left[128];
     snprintf(osd_left, sizeof(osd_left), "ALT: %.1f m AGL | SPD: %.1f m/s | PITCH: %+.1f°",
              telem.altitude_agl_m, telem.ground_speed_mps, gimbal.current_pitch_deg());
     draw_list->AddText(ImVec2(top_left.x + 12.0f, top_left.y + view_size.y - 24.0f), IM_COL32(0, 255, 180, 240), osd_left);
 
     char osd_right[128];
-    snprintf(osd_right, sizeof(osd_right), "LAT: %.5f° | LON: %.5f°",
+    snprintf(osd_right, sizeof(osd_right), "GPS: %.5f°, %.5f°",
              telem.drone_gps.latitude_deg, telem.drone_gps.longitude_deg);
     draw_list->AddText(ImVec2(top_left.x + view_size.x - 220.0f, top_left.y + view_size.y - 24.0f), IM_COL32(0, 255, 180, 240), osd_right);
 }
@@ -219,7 +224,7 @@ int main(int argc, char* argv[]) {
 
     // Setup Metal on macOS
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    GLFWwindow* window = glfwCreateWindow(1600, 1000, "Anduril Tactical IR Sensor & Drone Detection Simulation", NULL, NULL);
+    GLFWwindow* window = glfwCreateWindow(1440, 880, "Anduril Tactical IR Sensor & Drone Detection Simulation", NULL, NULL);
     if (!window) {
         std::cerr << "Error: Failed to create GLFW window\n";
         glfwTerminate();
@@ -305,34 +310,60 @@ int main(int argc, char* argv[]) {
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
+        // Logical display coordinates in points (NOT raw framebuffer pixels)
+        const float win_w = io.DisplaySize.x;
+        const float win_h = io.DisplaySize.y;
+
         // Set Fullscreen Docking / Workspace window
         ImGui::SetNextWindowPos(ImVec2(0, 0));
-        ImGui::SetNextWindowSize(ImVec2(static_cast<float>(width), static_cast<float>(height)));
+        ImGui::SetNextWindowSize(ImVec2(win_w, win_h));
         ImGui::Begin("GCS Main Canvas", nullptr,
                      ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
                      ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBringToFrontOnFocus);
 
-        // Top Control Ribbon
-        ImGui::TextColored(ImVec4(0.2f, 0.85f, 0.5f, 1.0f), "ANDURIL LATTICE / TACTICAL IR SENSOR SIMULATOR");
+        const auto& telem = pipeline.telemetry();
+        const auto& d_pos = telem.drone_pose.position_enu_m;
+
+        // Top Control Ribbon with live Drone Position updates
+        ImGui::TextColored(ImVec4(0.2f, 0.85f, 0.5f, 1.0f), "ANDURIL LATTICE / EO-IR DRONE SIMULATOR");
         ImGui::SameLine();
-        ImGui::Text("| Sim Time: %.1f s", pipeline.telemetry().sim_time_sec);
+        ImGui::TextColored(ImVec4(0.3f, 0.85f, 1.0f, 1.0f), "| ENU: [%+.1f, %+.1f, %.1f]m", d_pos.x, d_pos.y, d_pos.z);
         ImGui::SameLine();
-        ImGui::Text("| FPS: %.1f", io.Framerate);
+        ImGui::TextColored(ImVec4(1.0f, 0.85f, 0.3f, 1.0f), "| GPS: %.5f°, %.5f° (%.1fm AGL)",
+                           telem.drone_gps.latitude_deg, telem.drone_gps.longitude_deg, telem.altitude_agl_m);
         ImGui::SameLine();
-        ImGui::Text("| Total Latency: %.2f ms", pipeline.telemetry().latency.total_ms);
+        ImGui::Text("| Spd: %.1fm/s", telem.ground_speed_mps);
         ImGui::SameLine();
-        ImGui::Text("| Confirmed Tracks: %zu", pipeline.tracker().confirmed_track_count());
+        ImGui::Text("| Sim: %.1fs", telem.sim_time_sec);
+        ImGui::SameLine();
+        ImGui::Text("| FPS: %.0f", io.Framerate);
+        ImGui::SameLine();
+        ImGui::Text("| Tracks: %zu", pipeline.tracker().confirmed_track_count());
         ImGui::Separator();
 
-        // Main Layout: 2 Columns (Left: 4 Viewports Grid, Right: Control Panels)
-        const float left_col_w = static_cast<float>(width) * 0.68f;
-        const float right_col_w = static_cast<float>(width) - left_col_w - 24.0f;
+        // Main Layout: 2 Columns
+        // Left Column: 4 Viewports (62% width), Right Column: Controls (38% width)
+        const float left_col_w = std::floor(win_w * 0.62f);
+        const float right_col_w = win_w - left_col_w - 24.0f;
+        const float avail_h = win_h - 48.0f;
 
-        ImGui::BeginChild("LeftViewportGrid", ImVec2(left_col_w, 0), true);
+        // Symmetric 2x2 Viewport Layout Computation:
+        // 2 rows of viewports and 2 columns.
+        // Each row: text header (~22px) + image (vp_h) + spacing (~10px).
+        // Max height per viewport ensuring BOTH rows [1,2] and [3,4] fit completely:
+        const float max_vp_h = std::max(100.0f, (avail_h - 72.0f) * 0.5f);
+        const float max_vp_w = std::max(140.0f, (left_col_w - 28.0f) * 0.5f);
+
+        // Maintain 640x512 (5:4 / 1.25) aspect ratio
+        float vp_w = max_vp_w;
+        float vp_h = vp_w * (512.0f / 640.0f);
+        if (vp_h > max_vp_h) {
+            vp_h = max_vp_h;
+            vp_w = vp_h * (640.0f / 512.0f);
+        }
+
+        ImGui::BeginChild("LeftViewportGrid", ImVec2(left_col_w, avail_h), true);
         {
-            const float vp_w = (left_col_w - 32.0f) * 0.5f;
-            const float vp_h = vp_w * (512.0f / 640.0f);
-
             // Row 1: Viewport 1 (Ground Truth Radiance) & Viewport 2 (Raw 14-bit FPA)
             ImGui::BeginGroup();
             ImGui::TextColored(ImVec4(0.4f, 0.8f, 1.0f, 1.0f), "[1] Ground Truth At-Aperture Radiance");
@@ -370,9 +401,32 @@ int main(int argc, char* argv[]) {
         ImGui::SameLine();
 
         // Right Column: Interactive Flight, Gimbal, Sensor & Telemetry Panels
-        ImGui::BeginChild("RightControlPanels", ImVec2(right_col_w, 0), true);
+        ImGui::BeginChild("RightControlPanels", ImVec2(right_col_w, avail_h), true);
         {
-            if (ImGui::CollapsingHeader("1. Flight Mode & Teleoperation", ImGuiTreeNodeFlags_DefaultOpen)) {
+            if (ImGui::CollapsingHeader("1. Live Drone Navigation & State", ImGuiTreeNodeFlags_DefaultOpen)) {
+                const auto& d_pose = telem.drone_pose;
+
+                ImGui::TextColored(ImVec4(0.3f, 0.85f, 1.0f, 1.0f), "Local ENU Position:");
+                ImGui::Text("  East  (X): %+.2f m", d_pose.position_enu_m.x);
+                ImGui::Text("  North (Y): %+.2f m", d_pose.position_enu_m.y);
+                ImGui::Text("  Up    (Z): %+.2f m", d_pose.position_enu_m.z);
+
+                ImGui::Separator();
+                ImGui::TextColored(ImVec4(0.3f, 0.85f, 1.0f, 1.0f), "WGS84 GPS Position:");
+                ImGui::Text("  Latitude:  %+.6f°", telem.drone_gps.latitude_deg);
+                ImGui::Text("  Longitude: %+.6f°", telem.drone_gps.longitude_deg);
+                ImGui::Text("  Altitude:  %.1f m MSL (%.1f m AGL)", telem.drone_gps.altitude_msl_m, telem.altitude_agl_m);
+
+                ImGui::Separator();
+                ImGui::TextColored(ImVec4(0.3f, 0.85f, 1.0f, 1.0f), "Kinematics & Attitude:");
+                ImGui::Text("  Ground Speed: %.1f m/s (%.1f km/h)", telem.ground_speed_mps, telem.ground_speed_mps * 3.6f);
+                ImGui::Text("  Velocity: [%+.1f, %+.1f, %+.1f] m/s", d_pose.velocity_mps.x, d_pose.velocity_mps.y, d_pose.velocity_mps.z);
+                ImGui::Text("  Roll:  %+.1f°", d_pose.attitude.roll_deg());
+                ImGui::Text("  Pitch: %+.1f°", d_pose.attitude.pitch_deg());
+                ImGui::Text("  Yaw:   %+.1f°", d_pose.attitude.yaw_deg());
+            }
+
+            if (ImGui::CollapsingHeader("2. Flight Mode & Teleoperation", ImGuiTreeNodeFlags_DefaultOpen)) {
                 // Mode Buttons
                 if (ImGui::Button("Waypoint Nav", ImVec2(100, 26))) pipeline.set_flight_mode(FlightMode::Waypoint);
                 ImGui::SameLine();
@@ -406,7 +460,7 @@ int main(int argc, char* argv[]) {
                 }
             }
 
-            if (ImGui::CollapsingHeader("2. Gimbal & Payload Controls", ImGuiTreeNodeFlags_DefaultOpen)) {
+            if (ImGui::CollapsingHeader("3. Gimbal & Payload Controls", ImGuiTreeNodeFlags_DefaultOpen)) {
                 if (ImGui::Button("Point Nadir", ImVec2(100, 24))) pipeline.set_gimbal_nadir();
                 ImGui::SameLine();
                 if (ImGui::Button("GeoLock Target", ImVec2(110, 24))) pipeline.set_gimbal_geolock({250.0f, 200.0f, 100.0f});
@@ -420,7 +474,7 @@ int main(int argc, char* argv[]) {
                 }
             }
 
-            if (ImGui::CollapsingHeader("3. Sensor Degradation & Embedded ISP", ImGuiTreeNodeFlags_DefaultOpen)) {
+            if (ImGui::CollapsingHeader("4. Sensor Degradation & Embedded ISP", ImGuiTreeNodeFlags_DefaultOpen)) {
                 if (ImGui::SliderFloat("NETD Temporal Noise [mK]", &netd_slider, 10.0f, 100.0f, "%.0f mK")) {
                     pipeline.fpa().set_netd_k(netd_slider * 1.0e-3f);
                 }
@@ -437,8 +491,7 @@ int main(int argc, char* argv[]) {
                 }
             }
 
-            if (ImGui::CollapsingHeader("4. Tactical Telemetry & Active Tracks", ImGuiTreeNodeFlags_DefaultOpen)) {
-                const auto& telem = pipeline.telemetry();
+            if (ImGui::CollapsingHeader("5. Tactical Telemetry & Active Tracks", ImGuiTreeNodeFlags_DefaultOpen)) {
                 ImGui::Text("GPS Lat: %.6f° | Lon: %.6f°", telem.drone_gps.latitude_deg, telem.drone_gps.longitude_deg);
                 ImGui::Text("Altitude: %.1f m AGL | Speed: %.1f m/s", telem.altitude_agl_m, telem.ground_speed_mps);
                 ImGui::Separator();
@@ -478,7 +531,7 @@ int main(int argc, char* argv[]) {
                 }
             }
 
-            if (ImGui::CollapsingHeader("5. Pipeline Latency Breakdown", ImGuiTreeNodeFlags_DefaultOpen)) {
+            if (ImGui::CollapsingHeader("6. Pipeline Latency Breakdown", ImGuiTreeNodeFlags_DefaultOpen)) {
                 const auto& lat = pipeline.telemetry().latency;
                 ImGui::Text("1. Scene Radiative Transfer: %.2f ms", lat.scene_ms);
                 ImGui::Text("2. FPA Transduction/Noise:   %.2f ms", lat.fpa_ms);
