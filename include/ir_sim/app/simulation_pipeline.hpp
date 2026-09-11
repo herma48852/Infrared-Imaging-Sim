@@ -15,10 +15,17 @@
 #include "ir_sim/sensor/isp_pipeline.hpp"
 
 #include <chrono>
+#include <deque>
 #include <memory>
 #include <vector>
 
 namespace ir_sim::app {
+
+struct BeamRecord {
+    double sim_time_sec{0.0};
+    double az_deg{0.0};
+    double el_deg{0.0};
+};
 
 enum class FlightMode {
     Waypoint,
@@ -89,6 +96,12 @@ public:
     void set_gimbal_nadir();
     void set_gimbal_geolock(const core::Vec3& ground_target_m);
     void set_gimbal_manual_rates(float pitch_rate_radps, float yaw_rate_radps);
+    void set_gimbal_sector_scan(
+        float az_min_deg = 0.0f,
+        float az_max_deg = 90.0f,
+        float sweep_period_sec = 0.45f,
+        std::vector<float> elevation_bars_deg = {25.0f, 3.0f, 14.0f}
+    );
 
     // Component accessors
     [[nodiscard]] platform::DronePlatform& drone() noexcept { return drone_; }
@@ -126,6 +139,7 @@ public:
 
     // Telemetry & Latency
     [[nodiscard]] const PipelineTelemetry& telemetry() const noexcept { return telemetry_; }
+    [[nodiscard]] const std::deque<BeamRecord>& beam_history() const noexcept { return beam_history_; }
 
     // Options
     bool enable_lcm_filter{true};
@@ -168,6 +182,7 @@ private:
 
     // Telemetry
     PipelineTelemetry telemetry_{};
+    std::deque<BeamRecord> beam_history_{};
 };
 
 } // namespace ir_sim::app

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ir_sim/core/types.hpp"
+#include <vector>
 
 namespace ir_sim::platform {
 
@@ -8,7 +9,8 @@ enum class GimbalMode {
     Nadir,       // Look straight down [0, 0, -1]
     FixedLook,   // Fixed pitch/yaw relative to drone body
     GeoLock,     // Continuously tracks 3D ground target coordinate
-    ManualSlew   // Slew by commanded pan/tilt rates
+    ManualSlew,  // Slew by commanded pan/tilt rates
+    SectorScan   // Azimuth raster sweep with stepped elevation bars
 };
 
 /**
@@ -49,6 +51,14 @@ public:
         yaw_rate_cmd_ = yaw_rate_radps;
     }
 
+    // Sector Raster Scan configuration
+    void set_sector_scan(
+        float az_min_deg = 0.0f,
+        float az_max_deg = 90.0f,
+        float sweep_period_sec = 0.45f,
+        std::vector<float> elevation_bars_deg = {25.0f, 3.0f, 14.0f}
+    );
+
     // Vibration Jitter configuration
     void set_jitter_enabled(bool enabled) noexcept { jitter_enabled_ = enabled; }
     void set_jitter_amplitude_mrad(float amplitude_mrad) noexcept {
@@ -81,6 +91,14 @@ private:
     float pitch_rate_cmd_{0.0f};
     float yaw_rate_cmd_{0.0f};
     float max_slew_rate_radps_{1.57f}; // 90 deg/s max slew
+
+    // Sector Scan Parameters
+    float scan_az_min_deg_{0.0f};
+    float scan_az_max_deg_{90.0f};
+    float scan_period_sec_{0.45f};
+    std::vector<float> scan_el_bars_deg_{25.0f, 3.0f, 14.0f};
+    float scan_phase_sec_{0.0f};
+    size_t scan_bar_index_{0};
 
     // Jitter & Vibration Parameters
     bool jitter_enabled_{true};

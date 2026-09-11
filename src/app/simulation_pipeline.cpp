@@ -138,6 +138,15 @@ void SimulationPipeline::set_gimbal_manual_rates(float pitch_rate_radps, float y
     gimbal_.set_slew_rates(pitch_rate_radps, yaw_rate_radps);
 }
 
+void SimulationPipeline::set_gimbal_sector_scan(
+    float az_min_deg,
+    float az_max_deg,
+    float sweep_period_sec,
+    std::vector<float> elevation_bars_deg
+) {
+    gimbal_.set_sector_scan(az_min_deg, az_max_deg, sweep_period_sec, std::move(elevation_bars_deg));
+}
+
 void SimulationPipeline::step(float dt) {
     dt = std::clamp(dt, 0.001f, 0.1f);
     elapsed_sim_time_sec_ += dt;
@@ -162,7 +171,34 @@ void SimulationPipeline::step(float dt) {
     }
 
     drone_.step(dt);
-    gimbal_.update(drone_.pose(), dt);
+
+    // Multi-sample gimbal kinematics at 400 Hz equivalent (12 sub-samples per frame)
+    constexpr int SUBSTEPS = 12;
+    const float sub_dt = dt / static_cast<float>(SUBSTEPS);
+    for (int s = 0; s < SUBSTEPS; ++s) {
+        gimbal_.update(drone_.pose(), sub_dt);
+
+        BeamRecord rec;
+        rec.sim_time_sec = elapsed_sim_time_sec_ - dt + static_cast<double>(s + 1) * static_cast<double>(sub_dt);
+
+        const float az = gimbal_.current_yaw_deg();
+        const float el = gimbal_.current_pitch_deg();
+
+        if (gimbal_.mode() == platform::GimbalMode::SectorScan) {
+            rec.az_deg = az;
+            rec.el_deg = el;
+        } else {
+            // General display: azimuth in [0, 360) and depression elevation in [0, 90]
+            rec.az_deg = std::fmod(az + 360.0f, 360.0f);
+            rec.el_deg = std::clamp(-el, 0.0f, 90.0f);
+        }
+
+        beam_history_.push_back(rec);
+        if (beam_history_.size() > 960) {
+            beam_history_.pop_front();
+        }
+    }
+
     scene_.update(elapsed_sim_time_sec_);
 
     // 2. Stage 1: Radiative Transfer & Scene Rendering

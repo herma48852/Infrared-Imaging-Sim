@@ -19,6 +19,23 @@ void Gimbal::compute_geolock_angles(const core::Vec3& drone_pos, float& out_pitc
     out_yaw = std::atan2(delta.x, delta.y);           // 0 is North (+Y), positive clockwise toward East (+X)
 }
 
+void Gimbal::set_sector_scan(
+    float az_min_deg,
+    float az_max_deg,
+    float sweep_period_sec,
+    std::vector<float> elevation_bars_deg
+) {
+    scan_az_min_deg_ = az_min_deg;
+    scan_az_max_deg_ = az_max_deg;
+    scan_period_sec_ = std::max(0.05f, sweep_period_sec);
+    if (!elevation_bars_deg.empty()) {
+        scan_el_bars_deg_ = std::move(elevation_bars_deg);
+    }
+    scan_phase_sec_ = 0.0f;
+    scan_bar_index_ = 0;
+    mode_ = GimbalMode::SectorScan;
+}
+
 float Gimbal::current_pitch_deg() const noexcept {
     return current_pitch_rad_ * (180.0f / static_cast<float>(std::numbers::pi));
 }
@@ -60,24 +77,45 @@ void Gimbal::update(const core::DronePose& drone_pose, float dt) {
             desired_pitch = current_pitch_rad_ + pitch_rate_cmd_ * dt;
             desired_yaw = current_yaw_rad_ + yaw_rate_cmd_ * dt;
             break;
+
+        case GimbalMode::SectorScan: {
+            constexpr float deg2rad = static_cast<float>(std::numbers::pi) / 180.0f;
+            scan_phase_sec_ += dt;
+            while (scan_phase_sec_ >= scan_period_sec_) {
+                scan_phase_sec_ -= scan_period_sec_;
+                if (!scan_el_bars_deg_.empty()) {
+                    scan_bar_index_ = (scan_bar_index_ + 1) % scan_el_bars_deg_.size();
+                }
+            }
+            const float frac = std::clamp(scan_phase_sec_ / scan_period_sec_, 0.0f, 1.0f);
+            const float az_deg = scan_az_min_deg_ + frac * (scan_az_max_deg_ - scan_az_min_deg_);
+            const float el_deg = !scan_el_bars_deg_.empty() ? scan_el_bars_deg_[scan_bar_index_] : 0.0f;
+            desired_yaw = az_deg * deg2rad;
+            desired_pitch = el_deg * deg2rad;
+            current_pitch_rad_ = desired_pitch;
+            current_yaw_rad_ = desired_yaw;
+            break;
+        }
     }
 
-    // Limit pitch angle to prevent gimbal flip [-90 deg to +15 deg]
-    constexpr float min_pitch = -static_cast<float>(std::numbers::pi) * 0.5f;
-    constexpr float max_pitch = 0.2618f; // +15 deg
-    desired_pitch = std::clamp(desired_pitch, min_pitch, max_pitch);
+    if (mode_ != GimbalMode::SectorScan) {
+        // Limit pitch angle to prevent gimbal flip [-90 deg to +15 deg]
+        constexpr float min_pitch = -static_cast<float>(std::numbers::pi) * 0.5f;
+        constexpr float max_pitch = 0.2618f; // +15 deg
+        desired_pitch = std::clamp(desired_pitch, min_pitch, max_pitch);
 
-    // Apply servo slew rate limits
-    const float max_step = max_slew_rate_radps_ * dt;
-    const float pitch_err = desired_pitch - current_pitch_rad_;
-    current_pitch_rad_ += std::clamp(pitch_err, -max_step, max_step);
+        // Apply servo slew rate limits
+        const float max_step = max_slew_rate_radps_ * dt;
+        const float pitch_err = desired_pitch - current_pitch_rad_;
+        current_pitch_rad_ += std::clamp(pitch_err, -max_step, max_step);
 
-    // Yaw angle error with wrap-around
-    float yaw_err = desired_yaw - current_yaw_rad_;
-    constexpr float pi = static_cast<float>(std::numbers::pi);
-    while (yaw_err > pi) yaw_err -= 2.0f * pi;
-    while (yaw_err < -pi) yaw_err += 2.0f * pi;
-    current_yaw_rad_ += std::clamp(yaw_err, -max_step, max_step);
+        // Yaw angle error with wrap-around
+        float yaw_err = desired_yaw - current_yaw_rad_;
+        constexpr float pi = static_cast<float>(std::numbers::pi);
+        while (yaw_err > pi) yaw_err -= 2.0f * pi;
+        while (yaw_err < -pi) yaw_err += 2.0f * pi;
+        current_yaw_rad_ += std::clamp(yaw_err, -max_step, max_step);
+    }
 
     // High-Frequency Structural Vibration / Motor Harmonics
     float jitter_p = 0.0f;

@@ -10,16 +10,19 @@
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_metal.h"
+#include "implot.h"
 
 #include "ir_sim/app/metal_texture_renderer.hpp"
 #include "ir_sim/app/simulation_pipeline.hpp"
 #include "ir_sim/scene/scenario_manifest.hpp"
 
 #include <cmath>
+#include <deque>
 #include <iomanip>
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <vector>
 
 using namespace ir_sim;
 using namespace ir_sim::app;
@@ -199,6 +202,104 @@ void draw_tactical_hud_overlay(
     draw_list->AddText(ImVec2(top_left.x + view_size.x - 220.0f, top_left.y + view_size.y - 24.0f), IM_COL32(0, 255, 180, 240), osd_right);
 }
 
+class BeamTimelineState {
+public:
+    [[nodiscard]] bool paused() const noexcept { return paused_; }
+    [[nodiscard]] std::size_t snapshot_size() const noexcept { return snapshot_.size(); }
+
+    void toggle(const std::deque<BeamRecord>& live_history) {
+        paused_ = !paused_;
+        if (paused_) {
+            snapshot_.assign(live_history.begin(), live_history.end());
+        } else {
+            snapshot_.clear();
+        }
+    }
+
+    [[nodiscard]] const std::vector<BeamRecord>& displayed_history(const std::deque<BeamRecord>& live_history) const {
+        if (paused_) {
+            return snapshot_;
+        }
+        static thread_local std::vector<BeamRecord> cached;
+        cached.assign(live_history.begin(), live_history.end());
+        return cached;
+    }
+
+private:
+    bool paused_{false};
+    std::vector<BeamRecord> snapshot_{};
+};
+
+void render_beam_schedule_plot(
+    const std::deque<BeamRecord>& live_history,
+    BeamTimelineState& timeline_state,
+    bool& popped_out,
+    float plot_height
+) {
+    // 1. Toolbar controls
+    const bool pause_clicked = ImGui::SmallButton(timeline_state.paused() ? "RESUME" : "PAUSE");
+    if (pause_clicked) {
+        timeline_state.toggle(live_history);
+    }
+    ImGui::SameLine();
+    if (timeline_state.paused()) {
+        ImGui::TextColored(
+            ImVec4(1.0f, 0.75f, 0.30f, 1.0f),
+            "FROZEN  %zu samples", timeline_state.snapshot_size());
+    } else {
+        ImGui::TextColored(
+            ImVec4(1.0f, 0.75f, 0.30f, 1.0f),
+            "%zu samples", live_history.size());
+    }
+
+    ImGui::SameLine();
+    const float avail_x = ImGui::GetContentRegionAvail().x;
+    if (avail_x > 32.0f) {
+        ImGui::SetCursorPosX(ImGui::GetCursorPosX() + avail_x - 30.0f);
+        if (ImGui::SmallButton(popped_out ? "[ - ]" : "[ ]")) {
+            popped_out = !popped_out;
+        }
+    }
+
+    // 2. Dual-axis ImPlot Graph
+    const auto& displayed = timeline_state.displayed_history(live_history);
+    if (displayed.size() >= 2 &&
+        ImPlot::BeginPlot("##beamtl", ImVec2(-1, plot_height), ImPlotFlags_NoMenus)) {
+        
+        static thread_local std::vector<double> xs, ys, ys2;
+        const size_t n = displayed.size();
+        xs.resize(n);
+        ys.resize(n);
+        ys2.resize(n);
+
+        const double t0 = displayed.front().sim_time_sec;
+        for (size_t i = 0; i < n; ++i) {
+            xs[i] = displayed[i].sim_time_sec - t0;
+            ys[i] = displayed[i].az_deg;
+            ys2[i] = displayed[i].el_deg;
+        }
+
+        ImPlot::SetupAxes("t [s]", "az [deg]", 0, 0);
+        ImPlot::SetupAxis(ImAxis_Y2, "el [deg]", ImPlotAxisFlags_AuxDefault);
+
+        const double x_max = std::max(2.5, xs.back() + 0.1);
+        ImPlot::SetupAxesLimits(0.0, x_max, 0.0, 90.0, ImGuiCond_Always);
+        ImPlot::SetupAxisLimits(ImAxis_Y2, 0.0, 30.0, ImGuiCond_Always);
+
+        // Azimuth trace (green sawtooth)
+        ImPlot::SetAxes(ImAxis_X1, ImAxis_Y1);
+        ImPlot::SetNextLineStyle(ImVec4(0.35f, 1.0f, 0.55f, 1.0f), 1.5f);
+        ImPlot::PlotLine("beam az", xs.data(), ys.data(), static_cast<int>(xs.size()));
+
+        // Elevation trace (amber stepped)
+        ImPlot::SetAxes(ImAxis_X1, ImAxis_Y2);
+        ImPlot::SetNextLineStyle(ImVec4(1.0f, 0.75f, 0.30f, 1.0f), 1.5f);
+        ImPlot::PlotLine("beam el", xs.data(), ys2.data(), static_cast<int>(xs.size()));
+
+        ImPlot::EndPlot();
+    }
+}
+
 } // namespace
 
 int main(int argc, char* argv[]) {
@@ -241,9 +342,10 @@ int main(int argc, char* argv[]) {
     nswin.contentView.layer = layer;
     nswin.contentView.wantsLayer = YES;
 
-    // Setup Dear ImGui
+    // Setup Dear ImGui and ImPlot
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
+    ImPlot::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     apply_tactical_defense_theme();
@@ -278,6 +380,8 @@ int main(int argc, char* argv[]) {
     bool enable_jitter = true;
     bool enable_bpr = true;
     bool enable_lcm = true;
+    BeamTimelineState timeline_state;
+    bool beam_schedule_popped_out = false;
 
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
@@ -461,7 +565,11 @@ int main(int argc, char* argv[]) {
             }
 
             if (ImGui::CollapsingHeader("3. Gimbal & Payload Controls", ImGuiTreeNodeFlags_DefaultOpen)) {
-                if (ImGui::Button("Point Nadir", ImVec2(100, 24))) pipeline.set_gimbal_nadir();
+                if (ImGui::Button("Sector Scan (AESA)", ImVec2(130, 24))) {
+                    pipeline.set_gimbal_sector_scan(0.0f, 90.0f, 0.45f, {25.0f, 3.0f, 14.0f});
+                }
+                ImGui::SameLine();
+                if (ImGui::Button("Point Nadir", ImVec2(90, 24))) pipeline.set_gimbal_nadir();
                 ImGui::SameLine();
                 if (ImGui::Button("GeoLock Target", ImVec2(110, 24))) pipeline.set_gimbal_geolock({250.0f, 200.0f, 100.0f});
 
@@ -471,6 +579,18 @@ int main(int argc, char* argv[]) {
                 static float jitter_amp = 0.20f;
                 if (ImGui::SliderFloat("Jitter Amplitude [mrad]", &jitter_amp, 0.0f, 1.0f, "%.2f mrad")) {
                     pipeline.gimbal().set_jitter_amplitude_mrad(jitter_amp);
+                }
+
+                ImGui::Separator();
+                ImGui::TextColored(ImVec4(0.3f, 0.85f, 1.0f, 1.0f), "BEAM SCHEDULE (Gimbal Slew & Scan Monitor):");
+                if (!beam_schedule_popped_out) {
+                    render_beam_schedule_plot(pipeline.beam_history(), timeline_state, beam_schedule_popped_out, 200.0f);
+                } else {
+                    ImGui::TextColored(ImVec4(1.0f, 0.75f, 0.30f, 1.0f), "Popout Window Active: [BEAM SCHEDULE]");
+                    ImGui::SameLine();
+                    if (ImGui::SmallButton("Re-dock")) {
+                        beam_schedule_popped_out = false;
+                    }
                 }
             }
 
@@ -547,6 +667,15 @@ int main(int argc, char* argv[]) {
 
         ImGui::End();
 
+        // 3b. Render Popout BEAM SCHEDULE Window if detached
+        if (beam_schedule_popped_out) {
+            ImGui::SetNextWindowSize(ImVec2(600, 420), ImGuiCond_FirstUseEver);
+            if (ImGui::Begin("BEAM SCHEDULE", &beam_schedule_popped_out, ImGuiWindowFlags_NoCollapse)) {
+                render_beam_schedule_plot(pipeline.beam_history(), timeline_state, beam_schedule_popped_out, -1);
+            }
+            ImGui::End();
+        }
+
         // 4. Render ImGui Draw Data via Metal
         ImGui::Render();
         id<MTLRenderCommandEncoder> renderEncoder = [commandBuffer renderCommandEncoderWithDescriptor:renderPassDescriptor];
@@ -562,6 +691,7 @@ int main(int argc, char* argv[]) {
     // Cleanup
     ImGui_ImplMetal_Shutdown();
     ImGui_ImplGlfw_Shutdown();
+    ImPlot::DestroyContext();
     ImGui::DestroyContext();
 
     glfwDestroyWindow(window);

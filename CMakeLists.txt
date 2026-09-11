@@ -180,6 +180,19 @@ target_link_libraries(imgui PUBLIC
 # Suppress compiler warnings for third-party Dear ImGui code
 target_compile_options(imgui PRIVATE -w)
 
+add_library(implot STATIC
+    third_party/implot/implot.cpp
+    third_party/implot/implot_items.cpp
+)
+
+target_include_directories(implot PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/third_party/implot
+    ${CMAKE_CURRENT_SOURCE_DIR}/third_party/imgui
+)
+
+target_link_libraries(implot PUBLIC imgui)
+target_compile_options(implot PRIVATE -w)
+
 add_executable(ir_drone_sim
     src/app/metal_texture_renderer.mm
     src/app/main_gui.mm
@@ -190,12 +203,14 @@ target_compile_options(ir_drone_sim PRIVATE -Wno-old-style-cast -Wno-nontrivial-
 target_include_directories(ir_drone_sim PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/third_party/imgui
     ${CMAKE_CURRENT_SOURCE_DIR}/third_party/imgui/backends
+    ${CMAKE_CURRENT_SOURCE_DIR}/third_party/implot
     /opt/homebrew/include
     /usr/local/include
 )
 
 target_link_libraries(ir_drone_sim PRIVATE
     imgui
+    implot
     ir_sim_pipeline
     ${GLFW_TARGET}
     "-framework Metal"
