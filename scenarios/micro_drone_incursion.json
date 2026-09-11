@@ -1,0 +1,55 @@
+{
+  "scenario_name": "micro_drone_incursion",
+  "description": "Tactical micro-UAV quadcopters hovering and performing low-altitude reconnaissance",
+  "duration_sec": 60.000,
+  "environment": {
+    "ambient_temp_k": 289.150,
+    "solar_irradiance_w_m2": 60.000,
+    "visibility_km": 16.000,
+    "wind_vector_mps": [1.500, 0.500, 0.000],
+    "time_of_day_hours": 18.000
+  },
+  "terrain": {
+    "origin_lat": 34.052200,
+    "origin_lon": -118.243700,
+    "size_x_m": 2000.00,
+    "size_y_m": 2000.00,
+    "base_elevation_m": 80.00,
+    "terrain_type": "urban"
+  },
+  "targets": [
+    {
+      "id": 301,
+      "name": "recon_quadcopter_1",
+      "type": "drone_quadcopter",
+      "dimensions": [0.30, 0.30, 0.15],
+      "thermal_zones": [
+        { "name": "electric_motors", "temp_k": 328.00, "emissivity": 0.85, "relative_area": 0.25 },
+        { "name": "battery_pack", "temp_k": 318.00, "emissivity": 0.90, "relative_area": 0.35 },
+        { "name": "carbon_frame", "temp_k": 295.00, "emissivity": 0.82, "relative_area": 0.40 }
+      ],
+      "waypoints": [
+        { "time_sec": 0.00, "pos": [350.00, 250.00, 110.00], "speed_mps": 5.00, "yaw_deg": 120.00 },
+        { "time_sec": 20.00, "pos": [410.00, 310.00, 115.00], "speed_mps": 4.00, "yaw_deg": 90.00 },
+        { "time_sec": 40.00, "pos": [430.00, 350.00, 112.00], "speed_mps": 3.00, "yaw_deg": 45.00 },
+        { "time_sec": 60.00, "pos": [480.00, 390.00, 118.00], "speed_mps": 5.00, "yaw_deg": 45.00 }
+      ]
+    },
+    {
+      "id": 302,
+      "name": "sprint_micro_uav",
+      "type": "drone_quadcopter",
+      "dimensions": [0.25, 0.25, 0.12],
+      "thermal_zones": [
+        { "name": "electric_motors", "temp_k": 335.00, "emissivity": 0.85, "relative_area": 0.30 },
+        { "name": "battery_pack", "temp_k": 322.00, "emissivity": 0.90, "relative_area": 0.30 },
+        { "name": "frame", "temp_k": 294.00, "emissivity": 0.82, "relative_area": 0.40 }
+      ],
+      "waypoints": [
+        { "time_sec": 0.00, "pos": [200.00, 100.00, 95.00], "speed_mps": 18.00, "yaw_deg": 60.00 },
+        { "time_sec": 30.00, "pos": [550.00, 400.00, 105.00], "speed_mps": 18.00, "yaw_deg": 60.00 },
+        { "time_sec": 60.00, "pos": [900.00, 700.00, 115.00], "speed_mps": 18.00, "yaw_deg": 60.00 }
+      ]
+    }
+  ]
+}

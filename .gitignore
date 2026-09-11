@@ -1,0 +1,23 @@
+# Build outputs
+build/
+bin/
+lib/
+*.o
+*.a
+*.dylib
+*.so
+
+# Telemetry and benchmark exports
+*.csv
+*.log
+
+# Operating System & IDEs
+.DS_Store
+.AppleDouble
+.LSOverride
+compile_commands.json
+.vscode/
+.idea/
+*.swp
+*~
+imgui.ini

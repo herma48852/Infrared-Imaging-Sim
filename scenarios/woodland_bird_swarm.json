@@ -1,0 +1,82 @@
+{
+  "scenario_name": "woodland_bird_swarm",
+  "description": "Sub-pixel point targets: flock of wild birds flying over temperate forest canopy",
+  "duration_sec": 60.000,
+  "environment": {
+    "ambient_temp_k": 285.150,
+    "solar_irradiance_w_m2": 120.000,
+    "visibility_km": 12.000,
+    "wind_vector_mps": [3.000, 1.500, 0.000],
+    "time_of_day_hours": 8.500
+  },
+  "terrain": {
+    "origin_lat": 34.052200,
+    "origin_lon": -118.243700,
+    "size_x_m": 2000.00,
+    "size_y_m": 2000.00,
+    "base_elevation_m": 50.00,
+    "terrain_type": "woodland"
+  },
+  "targets": [
+    {
+      "id": 201,
+      "name": "bird_1",
+      "type": "bird",
+      "dimensions": [0.35, 0.65, 0.20],
+      "thermal_zones": [
+        { "name": "plumage_body", "temp_k": 314.50, "emissivity": 0.95, "relative_area": 0.85 },
+        { "name": "head_beak", "temp_k": 310.00, "emissivity": 0.92, "relative_area": 0.15 }
+      ],
+      "waypoints": [
+        { "time_sec": 0.00, "pos": [200.00, 300.00, 90.00], "speed_mps": 14.00, "yaw_deg": 45.00 },
+        { "time_sec": 30.00, "pos": [500.00, 600.00, 100.00], "speed_mps": 14.00, "yaw_deg": 45.00 },
+        { "time_sec": 60.00, "pos": [800.00, 900.00, 95.00], "speed_mps": 14.00, "yaw_deg": 45.00 }
+      ]
+    },
+    {
+      "id": 202,
+      "name": "bird_2",
+      "type": "bird",
+      "dimensions": [0.35, 0.65, 0.20],
+      "thermal_zones": [
+        { "name": "plumage_body", "temp_k": 314.50, "emissivity": 0.95, "relative_area": 0.85 },
+        { "name": "head_beak", "temp_k": 310.00, "emissivity": 0.92, "relative_area": 0.15 }
+      ],
+      "waypoints": [
+        { "time_sec": 0.00, "pos": [215.00, 290.00, 95.00], "speed_mps": 14.00, "yaw_deg": 45.00 },
+        { "time_sec": 30.00, "pos": [515.00, 590.00, 105.00], "speed_mps": 14.00, "yaw_deg": 45.00 },
+        { "time_sec": 60.00, "pos": [815.00, 890.00, 100.00], "speed_mps": 14.00, "yaw_deg": 45.00 }
+      ]
+    },
+    {
+      "id": 203,
+      "name": "bird_3",
+      "type": "bird",
+      "dimensions": [0.35, 0.65, 0.20],
+      "thermal_zones": [
+        { "name": "plumage_body", "temp_k": 314.50, "emissivity": 0.95, "relative_area": 0.85 },
+        { "name": "head_beak", "temp_k": 310.00, "emissivity": 0.92, "relative_area": 0.15 }
+      ],
+      "waypoints": [
+        { "time_sec": 0.00, "pos": [188.00, 320.00, 100.00], "speed_mps": 14.00, "yaw_deg": 45.00 },
+        { "time_sec": 30.00, "pos": [488.00, 620.00, 110.00], "speed_mps": 14.00, "yaw_deg": 45.00 },
+        { "time_sec": 60.00, "pos": [788.00, 920.00, 105.00], "speed_mps": 14.00, "yaw_deg": 45.00 }
+      ]
+    },
+    {
+      "id": 204,
+      "name": "bird_4",
+      "type": "bird",
+      "dimensions": [0.35, 0.65, 0.20],
+      "thermal_zones": [
+        { "name": "plumage_body", "temp_k": 314.50, "emissivity": 0.95, "relative_area": 0.85 },
+        { "name": "head_beak", "temp_k": 310.00, "emissivity": 0.92, "relative_area": 0.15 }
+      ],
+      "waypoints": [
+        { "time_sec": 0.00, "pos": [225.00, 315.00, 105.00], "speed_mps": 14.00, "yaw_deg": 45.00 },
+        { "time_sec": 30.00, "pos": [525.00, 615.00, 115.00], "speed_mps": 14.00, "yaw_deg": 45.00 },
+        { "time_sec": 60.00, "pos": [825.00, 915.00, 110.00], "speed_mps": 14.00, "yaw_deg": 45.00 }
+      ]
+    }
+  ]
+}

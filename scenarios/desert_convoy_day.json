@@ -1,0 +1,73 @@
+{
+  "scenario_name": "desert_convoy_day",
+  "description": "Tactical military supply convoy traversing desert highway in high ambient temperature",
+  "duration_sec": 60.000,
+  "environment": {
+    "ambient_temp_k": 303.150,
+    "solar_irradiance_w_m2": 850.000,
+    "visibility_km": 20.000,
+    "wind_vector_mps": [4.000, 2.000, 0.000],
+    "time_of_day_hours": 13.500
+  },
+  "terrain": {
+    "origin_lat": 34.052200,
+    "origin_lon": -118.243700,
+    "size_x_m": 3000.00,
+    "size_y_m": 3000.00,
+    "base_elevation_m": 120.00,
+    "terrain_type": "desert"
+  },
+  "targets": [
+    {
+      "id": 101,
+      "name": "lead_truck_6x6",
+      "type": "military_vehicle",
+      "dimensions": [7.50, 2.50, 2.80],
+      "thermal_zones": [
+        { "name": "hood_engine", "temp_k": 348.00, "emissivity": 0.92, "relative_area": 0.25 },
+        { "name": "exhaust_pipe", "temp_k": 475.00, "emissivity": 0.88, "relative_area": 0.08 },
+        { "name": "tires", "temp_k": 322.00, "emissivity": 0.94, "relative_area": 0.22 },
+        { "name": "chassis_painted", "temp_k": 308.00, "emissivity": 0.91, "relative_area": 0.45 }
+      ],
+      "waypoints": [
+        { "time_sec": 0.00, "pos": [50.00, 200.00, 120.00], "speed_mps": 15.00, "yaw_deg": 90.00 },
+        { "time_sec": 30.00, "pos": [500.00, 200.00, 120.00], "speed_mps": 15.00, "yaw_deg": 90.00 },
+        { "time_sec": 60.00, "pos": [950.00, 200.00, 120.00], "speed_mps": 15.00, "yaw_deg": 90.00 }
+      ]
+    },
+    {
+      "id": 102,
+      "name": "supply_truck_2",
+      "type": "military_vehicle",
+      "dimensions": [7.00, 2.50, 2.70],
+      "thermal_zones": [
+        { "name": "hood_engine", "temp_k": 342.00, "emissivity": 0.92, "relative_area": 0.25 },
+        { "name": "exhaust_pipe", "temp_k": 460.00, "emissivity": 0.88, "relative_area": 0.08 },
+        { "name": "tires", "temp_k": 320.00, "emissivity": 0.94, "relative_area": 0.22 },
+        { "name": "chassis_painted", "temp_k": 307.00, "emissivity": 0.91, "relative_area": 0.45 }
+      ],
+      "waypoints": [
+        { "time_sec": 0.00, "pos": [-20.00, 200.00, 120.00], "speed_mps": 15.00, "yaw_deg": 90.00 },
+        { "time_sec": 30.00, "pos": [430.00, 200.00, 120.00], "speed_mps": 15.00, "yaw_deg": 90.00 },
+        { "time_sec": 60.00, "pos": [880.00, 200.00, 120.00], "speed_mps": 15.00, "yaw_deg": 90.00 }
+      ]
+    },
+    {
+      "id": 103,
+      "name": "escort_technical",
+      "type": "civilian_vehicle",
+      "dimensions": [4.80, 1.90, 1.80],
+      "thermal_zones": [
+        { "name": "hood_engine", "temp_k": 355.00, "emissivity": 0.93, "relative_area": 0.30 },
+        { "name": "exhaust", "temp_k": 490.00, "emissivity": 0.89, "relative_area": 0.10 },
+        { "name": "tires", "temp_k": 325.00, "emissivity": 0.94, "relative_area": 0.25 },
+        { "name": "body", "temp_k": 310.00, "emissivity": 0.92, "relative_area": 0.35 }
+      ],
+      "waypoints": [
+        { "time_sec": 0.00, "pos": [140.00, 200.00, 120.00], "speed_mps": 18.00, "yaw_deg": 90.00 },
+        { "time_sec": 30.00, "pos": [680.00, 200.00, 120.00], "speed_mps": 18.00, "yaw_deg": 90.00 },
+        { "time_sec": 60.00, "pos": [1220.00, 200.00, 120.00], "speed_mps": 18.00, "yaw_deg": 90.00 }
+      ]
+    }
+  ]
+}
