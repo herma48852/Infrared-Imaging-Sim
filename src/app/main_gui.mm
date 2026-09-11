@@ -198,8 +198,18 @@ void draw_tactical_hud_overlay(
 
 int main(int argc, char* argv[]) {
     std::string scenario_path = "scenarios/desert_convoy_day.json";
-    if (argc > 1) {
-        scenario_path = argv[1];
+    for (int i = 1; i < argc; ++i) {
+        std::string_view arg = argv[i];
+        if (arg == "--scenario" && i + 1 < argc) {
+            scenario_path = argv[++i];
+        } else if (arg == "--help" || arg == "-h") {
+            std::cout << "Usage: " << argv[0] << " [options] [scenario.json]\n"
+                      << "  --scenario <path>   Path to scenario manifest JSON\n"
+                      << "  --help              Display this message\n";
+            return 0;
+        } else if (!arg.starts_with("-")) {
+            scenario_path = arg;
+        }
     }
 
     if (!glfwInit()) {
