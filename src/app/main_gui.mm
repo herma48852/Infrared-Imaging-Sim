@@ -256,9 +256,9 @@ void render_beam_schedule_plot(
 
     ImGui::SameLine();
     const bool is_sector = (pipeline.gimbal().mode() == platform::GimbalMode::SectorScan);
-    if (ImGui::SmallButton(is_sector ? "Mode: Sector Scan (AESA)" : "Mode: GeoLock / Tracking")) {
+    if (ImGui::SmallButton(is_sector ? "Mode: 360° Scan (0.25 Hz)" : "Mode: GeoLock / Tracking")) {
         if (!is_sector) {
-            pipeline.set_gimbal_sector_scan(0.0f, 90.0f, 0.45f, {25.0f, 3.0f, 14.0f});
+            pipeline.set_gimbal_sector_scan(0.0f, 360.0f, 4.0f, {25.0f, 3.0f, 14.0f});
         } else {
             pipeline.set_gimbal_geolock({250.0f, 200.0f, 100.0f});
         }
@@ -291,15 +291,15 @@ void render_beam_schedule_plot(
             ys2[i] = displayed[i].el_deg;
         }
 
-        const double y1_max = is_sector ? 90.0 : 360.0;
+        const double y1_max = 360.0;
         const double y2_max = is_sector ? 30.0 : 90.0;
-        const char* y1_label = is_sector ? "az [deg]" : "az [0..360°]";
+        const char* y1_label = "az [0..360°]";
         const char* y2_label = is_sector ? "el [deg]" : "el dep [0..90°]";
 
         ImPlot::SetupAxes("t [s]", y1_label, 0, 0);
         ImPlot::SetupAxis(ImAxis_Y2, y2_label, ImPlotAxisFlags_AuxDefault);
 
-        const double x_max = std::max(2.5, xs.back() + 0.1);
+        const double x_max = std::max(5.0, xs.back() + 0.1);
         ImPlot::SetupAxesLimits(0.0, x_max, 0.0, y1_max, ImPlotCond_Always);
         ImPlot::SetupAxisLimits(ImAxis_Y2, 0.0, y2_max, ImPlotCond_Always);
 
@@ -379,7 +379,7 @@ int main(int argc, char* argv[]) {
     constexpr uint32_t CAM_W = 640;
     constexpr uint32_t CAM_H = 512;
     SimulationPipeline pipeline(*manifest_opt, CAM_W, CAM_H);
-    pipeline.set_gimbal_sector_scan(0.0f, 90.0f, 0.45f, {25.0f, 3.0f, 14.0f});
+    pipeline.set_gimbal_sector_scan(0.0f, 360.0f, 4.0f, {25.0f, 3.0f, 14.0f});
 
     // Create 4 Metal Viewport Textures
     auto tex_gt = create_metal_texture((__bridge void*)device, CAM_W, CAM_H);
@@ -583,8 +583,8 @@ int main(int argc, char* argv[]) {
             }
 
             if (ImGui::CollapsingHeader("3. Gimbal & Payload Controls", ImGuiTreeNodeFlags_DefaultOpen)) {
-                if (ImGui::Button("Sector Scan (AESA)", ImVec2(130, 24))) {
-                    pipeline.set_gimbal_sector_scan(0.0f, 90.0f, 0.45f, {25.0f, 3.0f, 14.0f});
+                if (ImGui::Button("360° Scan (0.25 Hz)", ImVec2(140, 24))) {
+                    pipeline.set_gimbal_sector_scan(0.0f, 360.0f, 4.0f, {25.0f, 3.0f, 14.0f});
                 }
                 ImGui::SameLine();
                 if (ImGui::Button("Point Nadir", ImVec2(90, 24))) pipeline.set_gimbal_nadir();

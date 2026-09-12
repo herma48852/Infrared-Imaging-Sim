@@ -106,8 +106,8 @@ TEST_CASE(gimbal_sector_scan) {
 TEST_CASE(pipeline_beam_history) {
     ir_sim::scene::ScenarioManifest manifest;
     ir_sim::app::SimulationPipeline pipeline(manifest, 64, 64);
-    pipeline.set_gimbal_sector_scan(0.0f, 90.0f, 0.45f, {25.0f, 3.0f, 14.0f});
-    for (int i = 0; i < 30; ++i) {
+    pipeline.set_gimbal_sector_scan(0.0f, 360.0f, 4.0f, {25.0f, 3.0f, 14.0f});
+    for (int i = 0; i < 130; ++i) {
         pipeline.step(0.0333f);
     }
     const auto& hist = pipeline.beam_history();
@@ -115,14 +115,17 @@ TEST_CASE(pipeline_beam_history) {
 
     bool saw_25 = false;
     bool saw_3 = false;
+    double max_az = 0.0;
     for (const auto& rec : hist) {
-        REQUIRE(rec.az_deg >= 0.0f);
-        REQUIRE(rec.az_deg <= 90.0f);
-        REQUIRE(rec.el_deg >= 0.0f);
-        REQUIRE(rec.el_deg <= 30.0f);
+        REQUIRE(rec.az_deg >= 0.0);
+        REQUIRE(rec.az_deg <= 360.0);
+        REQUIRE(rec.el_deg >= 0.0);
+        REQUIRE(rec.el_deg <= 30.0);
+        if (rec.az_deg > max_az) max_az = rec.az_deg;
         if (std::abs(rec.el_deg - 25.0f) < 0.1f) saw_25 = true;
         if (std::abs(rec.el_deg - 3.0f) < 0.1f) saw_3 = true;
     }
+    REQUIRE(max_az > 300.0f);
     REQUIRE(saw_25);
     REQUIRE(saw_3);
 

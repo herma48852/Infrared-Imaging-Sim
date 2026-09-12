@@ -194,7 +194,7 @@ void SimulationPipeline::step(float dt) {
         }
 
         beam_history_.push_back(rec);
-        if (beam_history_.size() > 960) {
+        if (beam_history_.size() > 2000) {
             beam_history_.pop_front();
         }
     }
