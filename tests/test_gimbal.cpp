@@ -1,5 +1,7 @@
 #include "test_main.hpp"
 #include "ir_sim/platform/gimbal.hpp"
+#include "ir_sim/app/simulation_pipeline.hpp"
+#include <iostream>
 
 using namespace ir_sim::core;
 using namespace ir_sim::platform;
@@ -100,3 +102,39 @@ TEST_CASE(gimbal_sector_scan) {
     }
     REQUIRE_NEAR(gimbal.current_pitch_deg(), 14.0f, 1e-3);
 }
+
+TEST_CASE(pipeline_beam_history) {
+    ir_sim::scene::ScenarioManifest manifest;
+    ir_sim::app::SimulationPipeline pipeline(manifest, 64, 64);
+    pipeline.set_gimbal_sector_scan(0.0f, 90.0f, 0.45f, {25.0f, 3.0f, 14.0f});
+    for (int i = 0; i < 30; ++i) {
+        pipeline.step(0.0333f);
+    }
+    const auto& hist = pipeline.beam_history();
+    REQUIRE(hist.size() > 0);
+
+    bool saw_25 = false;
+    bool saw_3 = false;
+    for (const auto& rec : hist) {
+        REQUIRE(rec.az_deg >= 0.0f);
+        REQUIRE(rec.az_deg <= 90.0f);
+        REQUIRE(rec.el_deg >= 0.0f);
+        REQUIRE(rec.el_deg <= 30.0f);
+        if (std::abs(rec.el_deg - 25.0f) < 0.1f) saw_25 = true;
+        if (std::abs(rec.el_deg - 3.0f) < 0.1f) saw_3 = true;
+    }
+    REQUIRE(saw_25);
+    REQUIRE(saw_3);
+
+    // Switch to GeoLock mode and verify depression angle bounds
+    pipeline.set_gimbal_geolock({250.0f, 200.0f, 100.0f});
+    for (int i = 0; i < 10; ++i) {
+        pipeline.step(0.0333f);
+    }
+    const auto& geolock_hist = pipeline.beam_history();
+    REQUIRE(geolock_hist.back().az_deg >= 0.0f);
+    REQUIRE(geolock_hist.back().az_deg <= 360.0f);
+    REQUIRE(geolock_hist.back().el_deg >= 0.0f);
+    REQUIRE(geolock_hist.back().el_deg <= 90.0f);
+}
+

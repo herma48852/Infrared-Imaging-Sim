@@ -231,11 +231,13 @@ private:
 };
 
 void render_beam_schedule_plot(
-    const std::deque<BeamRecord>& live_history,
+    SimulationPipeline& pipeline,
     BeamTimelineState& timeline_state,
     bool& popped_out,
     float plot_height
 ) {
+    const auto& live_history = pipeline.beam_history();
+
     // 1. Toolbar controls
     const bool pause_clicked = ImGui::SmallButton(timeline_state.paused() ? "RESUME" : "PAUSE");
     if (pause_clicked) {
@@ -250,6 +252,16 @@ void render_beam_schedule_plot(
         ImGui::TextColored(
             ImVec4(1.0f, 0.75f, 0.30f, 1.0f),
             "%zu samples", live_history.size());
+    }
+
+    ImGui::SameLine();
+    const bool is_sector = (pipeline.gimbal().mode() == platform::GimbalMode::SectorScan);
+    if (ImGui::SmallButton(is_sector ? "Mode: Sector Scan (AESA)" : "Mode: GeoLock / Tracking")) {
+        if (!is_sector) {
+            pipeline.set_gimbal_sector_scan(0.0f, 90.0f, 0.45f, {25.0f, 3.0f, 14.0f});
+        } else {
+            pipeline.set_gimbal_geolock({250.0f, 200.0f, 100.0f});
+        }
     }
 
     ImGui::SameLine();
@@ -279,12 +291,17 @@ void render_beam_schedule_plot(
             ys2[i] = displayed[i].el_deg;
         }
 
-        ImPlot::SetupAxes("t [s]", "az [deg]", 0, 0);
-        ImPlot::SetupAxis(ImAxis_Y2, "el [deg]", ImPlotAxisFlags_AuxDefault);
+        const double y1_max = is_sector ? 90.0 : 360.0;
+        const double y2_max = is_sector ? 30.0 : 90.0;
+        const char* y1_label = is_sector ? "az [deg]" : "az [0..360°]";
+        const char* y2_label = is_sector ? "el [deg]" : "el dep [0..90°]";
+
+        ImPlot::SetupAxes("t [s]", y1_label, 0, 0);
+        ImPlot::SetupAxis(ImAxis_Y2, y2_label, ImPlotAxisFlags_AuxDefault);
 
         const double x_max = std::max(2.5, xs.back() + 0.1);
-        ImPlot::SetupAxesLimits(0.0, x_max, 0.0, 90.0, ImGuiCond_Always);
-        ImPlot::SetupAxisLimits(ImAxis_Y2, 0.0, 30.0, ImGuiCond_Always);
+        ImPlot::SetupAxesLimits(0.0, x_max, 0.0, y1_max, ImPlotCond_Always);
+        ImPlot::SetupAxisLimits(ImAxis_Y2, 0.0, y2_max, ImPlotCond_Always);
 
         // Azimuth trace (green sawtooth)
         ImPlot::SetAxes(ImAxis_X1, ImAxis_Y1);
@@ -362,6 +379,7 @@ int main(int argc, char* argv[]) {
     constexpr uint32_t CAM_W = 640;
     constexpr uint32_t CAM_H = 512;
     SimulationPipeline pipeline(*manifest_opt, CAM_W, CAM_H);
+    pipeline.set_gimbal_sector_scan(0.0f, 90.0f, 0.45f, {25.0f, 3.0f, 14.0f});
 
     // Create 4 Metal Viewport Textures
     auto tex_gt = create_metal_texture((__bridge void*)device, CAM_W, CAM_H);
@@ -584,7 +602,7 @@ int main(int argc, char* argv[]) {
                 ImGui::Separator();
                 ImGui::TextColored(ImVec4(0.3f, 0.85f, 1.0f, 1.0f), "BEAM SCHEDULE (Gimbal Slew & Scan Monitor):");
                 if (!beam_schedule_popped_out) {
-                    render_beam_schedule_plot(pipeline.beam_history(), timeline_state, beam_schedule_popped_out, 200.0f);
+                    render_beam_schedule_plot(pipeline, timeline_state, beam_schedule_popped_out, 200.0f);
                 } else {
                     ImGui::TextColored(ImVec4(1.0f, 0.75f, 0.30f, 1.0f), "Popout Window Active: [BEAM SCHEDULE]");
                     ImGui::SameLine();
@@ -671,7 +689,7 @@ int main(int argc, char* argv[]) {
         if (beam_schedule_popped_out) {
             ImGui::SetNextWindowSize(ImVec2(600, 420), ImGuiCond_FirstUseEver);
             if (ImGui::Begin("BEAM SCHEDULE", &beam_schedule_popped_out, ImGuiWindowFlags_NoCollapse)) {
-                render_beam_schedule_plot(pipeline.beam_history(), timeline_state, beam_schedule_popped_out, -1);
+                render_beam_schedule_plot(pipeline, timeline_state, beam_schedule_popped_out, -1);
             }
             ImGui::End();
         }
