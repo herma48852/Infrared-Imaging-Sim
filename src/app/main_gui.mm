@@ -16,6 +16,7 @@
 #include "ir_sim/app/simulation_pipeline.hpp"
 #include "ir_sim/scene/scenario_manifest.hpp"
 
+#include <chrono>
 #include <cmath>
 #include <deque>
 #include <iomanip>
@@ -400,12 +401,19 @@ int main(int argc, char* argv[]) {
     bool enable_lcm = true;
     BeamTimelineState timeline_state;
     bool beam_schedule_popped_out = false;
+    float sim_speed = 1.0f;
+    auto last_wall_time = std::chrono::steady_clock::now();
 
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
 
-        // 1. Step simulation pipeline at 30 Hz
-        constexpr float dt = 0.0333f;
+        // 1. Real-time clock synchronization: measure actual wall-clock delta
+        const auto now = std::chrono::steady_clock::now();
+        float wall_dt = std::chrono::duration<float>(now - last_wall_time).count();
+        last_wall_time = now;
+        wall_dt = std::clamp(wall_dt, 0.001f, 0.100f);
+
+        const float dt = wall_dt * sim_speed;
         pipeline.enable_bpr = enable_bpr;
         pipeline.enable_lcm_filter = enable_lcm;
         pipeline.step(dt);
@@ -569,6 +577,14 @@ int main(int argc, char* argv[]) {
                 }
                 if (ImGui::SliderFloat("Orbit Radius [m]", &orbit_radius, 100.0f, 800.0f, "%.0f m")) {
                     pipeline.set_orbit_params({250.0f, 200.0f, altitude_cmd}, orbit_radius, airspeed_cmd);
+                }
+
+                ImGui::Separator();
+                ImGui::TextColored(ImVec4(0.3f, 0.85f, 1.0f, 1.0f), "Simulation Pacing & Speed:");
+                ImGui::SliderFloat("Time Scale", &sim_speed, 0.25f, 3.0f, "%.2fx");
+                ImGui::SameLine();
+                if (ImGui::SmallButton("1.0x Real-Time")) {
+                    sim_speed = 1.0f;
                 }
 
                 if (pipeline.flight_mode() == FlightMode::Manual) {
