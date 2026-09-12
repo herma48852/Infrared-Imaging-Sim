@@ -140,6 +140,12 @@ public:
     // Telemetry & Latency
     [[nodiscard]] const PipelineTelemetry& telemetry() const noexcept { return telemetry_; }
     [[nodiscard]] const std::deque<BeamRecord>& beam_history() const noexcept { return beam_history_; }
+    [[nodiscard]] core::Vec3 primary_target_position() const noexcept {
+        if (!manifest_.targets.empty()) {
+            return manifest_.targets.front().evaluate_at_time(elapsed_sim_time_sec_).position;
+        }
+        return {100.0f, 200.0f, manifest_.terrain.base_elevation_m};
+    }
 
     // Options
     bool enable_lcm_filter{true};

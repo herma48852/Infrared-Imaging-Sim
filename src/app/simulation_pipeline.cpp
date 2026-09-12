@@ -152,7 +152,14 @@ void SimulationPipeline::step(float dt) {
     elapsed_sim_time_sec_ += dt;
 
     // 1. Step Platform Kinematics & Controllers
-    if (current_flight_mode_ == FlightMode::Pursuit && !active_tracks_.empty()) {
+    if (gimbal_.mode() == platform::GimbalMode::GeoLock && !manifest_.targets.empty()) {
+        const core::Vec3 live_target = primary_target_position();
+        gimbal_.set_target_location(live_target);
+        if (current_flight_mode_ == FlightMode::Orbit && orbit_fc_) {
+            const float flight_alt = manifest_.terrain.base_elevation_m + 350.0f;
+            orbit_fc_->set_center({live_target.x, live_target.y, flight_alt});
+        }
+    } else if (current_flight_mode_ == FlightMode::Pursuit && !active_tracks_.empty()) {
         // Pursuit mode: Lock gimbal onto highest confidence track
         const auto& best_track = active_tracks_.front();
         if (best_track.state == detection::TrackState::Confirmed) {

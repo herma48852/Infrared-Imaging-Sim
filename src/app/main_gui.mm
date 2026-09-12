@@ -261,7 +261,7 @@ void render_beam_schedule_plot(
         if (!is_sector) {
             pipeline.set_gimbal_sector_scan(0.0f, 360.0f, 4.0f, {25.0f, 3.0f, 14.0f});
         } else {
-            pipeline.set_gimbal_geolock({250.0f, 200.0f, 100.0f});
+            pipeline.set_gimbal_geolock(pipeline.primary_target_position());
         }
     }
 
@@ -380,7 +380,6 @@ int main(int argc, char* argv[]) {
     constexpr uint32_t CAM_W = 640;
     constexpr uint32_t CAM_H = 512;
     SimulationPipeline pipeline(*manifest_opt, CAM_W, CAM_H);
-    pipeline.set_gimbal_sector_scan(0.0f, 360.0f, 4.0f, {25.0f, 3.0f, 14.0f});
 
     // Create 4 Metal Viewport Textures
     auto tex_gt = create_metal_texture((__bridge void*)device, CAM_W, CAM_H);
@@ -605,7 +604,7 @@ int main(int argc, char* argv[]) {
                 ImGui::SameLine();
                 if (ImGui::Button("Point Nadir", ImVec2(90, 24))) pipeline.set_gimbal_nadir();
                 ImGui::SameLine();
-                if (ImGui::Button("GeoLock Target", ImVec2(110, 24))) pipeline.set_gimbal_geolock({250.0f, 200.0f, 100.0f});
+                if (ImGui::Button("GeoLock Target", ImVec2(110, 24))) pipeline.set_gimbal_geolock(pipeline.primary_target_position());
 
                 if (ImGui::Checkbox("Motor Vibration Jitter", &enable_jitter)) {
                     pipeline.gimbal().set_jitter_enabled(enable_jitter);
